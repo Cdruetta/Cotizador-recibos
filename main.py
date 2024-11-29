@@ -7,9 +7,8 @@ from PyQt5.QtWidgets import (
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.pdfgen import canvas
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 
 class CotizacionApp(QWidget):
@@ -30,8 +29,7 @@ class CotizacionApp(QWidget):
         self.proveedor_dropdown = QComboBox()
 
         # Conectar el evento de selección del producto
-        # Usamos currentIndexChanged en lugar de activated para capturar la selección correctamente
-        self.producto_dropdown.currentIndexChanged.connect(self.actualizar_precio_unitario)
+        self.producto_dropdown.activated.connect(self.actualizar_precio_unitario)  # Cambié a 'activated'
 
         # Inputs adicionales
         self.cantidad_input = QLineEdit()
@@ -192,6 +190,13 @@ class CotizacionApp(QWidget):
             # Crear un lista para los elementos del PDF
             elements = []
 
+            # Agregar el logo en la parte superior del documento (asegúrate de poner el path correcto)
+            logo_path = 'img/logo.png'  # Cambia esto al path de tu logo
+            elements.append(Paragraph('<img src="{}" width="200" height="50" />'.format(logo_path), style_normal))
+
+            # Agregar un espacio antes del título
+            elements.append(Paragraph('<br />', style_normal))
+
             # Encabezado de la cotización
             title = Paragraph(f'<b>Cotización</b><br/>Cliente: {cliente}<br/>Producto: {producto}', style_title)
             elements.append(title)
@@ -211,21 +216,20 @@ class CotizacionApp(QWidget):
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('FONTSIZE', (0, 0), (-1, -1), 12)
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ]))
 
             elements.append(table)
 
-            # Generar PDF
+            # Generar el archivo PDF
             document.build(elements)
 
-            QMessageBox.information(self, "PDF Generado", f"Se ha generado el archivo PDF de la cotización: {file_name}")
+            QMessageBox.information(self, "PDF Generado", f"El archivo PDF se ha generado correctamente: {file_name}")
 
         except Exception as e:
-            QMessageBox.critical(self, "Error al generar PDF", f"Se produjo un error al generar el PDF: {str(e)}")
-
+            QMessageBox.critical(self, "Error", f"Hubo un error al generar el PDF: {str(e)}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
