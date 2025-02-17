@@ -12,6 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 import os
 from datetime import datetime
+from PIL import Image as PILImage
 
 
 def obtener_ruta_archivo(nombre_archivo):
@@ -88,8 +89,10 @@ class CotizacionApp(QWidget):
 
             # Clientes
             if 'Clientes' in excel_data.sheet_names:
-                clientes = pd.read_excel(excel_data, sheet_name='Clientes')['Nombre'].dropna().unique()
-                self.cliente_dropdown.addItems(clientes.tolist())
+                clientes_df = pd.read_excel(excel_data, sheet_name='Clientes')
+                clientes_df = clientes_df.dropna(subset=['Nombre'])  # Elimina filas sin nombre
+                self.clientes_data = clientes_df.set_index('Nombre').to_dict(orient='index')
+                self.cliente_dropdown.addItems(clientes_df['Nombre'].tolist())
 
             # Productos
             if 'Productos' in excel_data.sheet_names:
@@ -141,75 +144,108 @@ class CotizacionApp(QWidget):
         precio = self.productos_precios.get(producto, 0)
         self.precio_input.setText(f"{precio:.2f}")
 
-    def generar_cotizacion(self):
-        cliente = self.cliente_dropdown.currentText()
-        proveedor = self.proveedor_dropdown.currentText()
-        fecha = datetime.now().strftime("%d/%m/%Y")
 
-        if not self.productos_agregados:
-            QMessageBox.warning(self, "Sin Productos", "Agrega al menos un producto antes de generar la cotización.")
+    def generar_cotizacion(self):
+        """Genera la cotización en formato PDF y la guarda en el escritorio."""
+        cliente = self.cliente_dropdown.currentText()
+        if not cliente:
+            QMessageBox.warning(self, "Cliente", "Debe seleccionar un cliente.")
             return
 
-        try:
-            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "cotizaciones")
-            os.makedirs(desktop_path, exist_ok=True)
-            file_path = os.path.join(desktop_path, f"cotizacion_{cliente}.pdf")
+        if not self.productos_agregados:
+            QMessageBox.warning(self, "Productos", "Debe agregar al menos un producto.")
+            return
 
-            document = SimpleDocTemplate(file_path, pagesize=landscape(letter))
-            elements = []
-            styles = getSampleStyleSheet()
-            title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], alignment=1)
-
-            # Definir el estilo para el encabezado
-            style_header = ParagraphStyle(
-                'HeaderStyle',
-                parent=getSampleStyleSheet()['Heading1'],  # Usamos un estilo predefinido como base
-                fontSize=14,
-                fontName='Helvetica-Bold',
-                textColor=colors.black,
-                alignment=1,  # Centrado
-                spaceAfter=12  # Espacio después del párrafo
-            )
-            
-            # Logo
-            logo_path = obtener_ruta_archivo("img/logo.png")
-            if os.path.exists(logo_path):
-                logo = Image(logo_path, width=100)   # Ajusta el ancho
-                logo.drawHeight = (logo.imageHeight * 100) / logo.imageWidth   # Ajusta la altura proporcionalmente
-                elements.append(logo)
-                
-            # Espaciado y encabezado
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("<b>GCinsumos y Servicio Técnico</b>", style_header))
+        # Generar el presupuesto (PDF)
+        file_path = self.generar_presupuesto(cliente, self.productos_agregados)
+        
+        # Confirmar que se generó correctamente
+        QMessageBox.information(self, "Éxito", f"Cotización generada: {file_path}")
 
 
-            # Información del cliente y proveedor
-            elements.append(Paragraph(f"<b>Cliente:</b> {cliente}", styles['Normal']))
-            elements.append(Paragraph(f"<b>Proveedor:</b> {proveedor}", styles['Normal']))
-            elements.append(Paragraph(f"<b>Fecha:</b> {fecha}", styles['Normal']))
+    def generar_presupuesto(self, cliente, productos):
+        """Genera el presupuesto en formato PDF."""
+        fecha = datetime.now().strftime("%d/%m/%Y")
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "presupuestos")
+        os.makedirs(desktop_path, exist_ok=True)
+        file_path = os.path.join(desktop_path, f"presupuesto_{cliente}.pdf")
+        
+        document = SimpleDocTemplate(file_path, pagesize=landscape(letter))
+        elements = []
+        styles = getSampleStyleSheet()
 
-            elements.append(Spacer(1, 12))  # Espaciado entre la fecha y la tabla
+        # Estilos personalizados
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1)
+        info_style = ParagraphStyle('InfoStyle', parent=styles['Normal'], fontSize=10)
 
-            # Crear la tabla de productos
-            data = [['Producto', 'Proveedor', 'Cantidad', 'Precio Unitario', 'Total']]
-            for p, prov, c, pu, t in self.productos_agregados:
-                data.append([p, prov, c, f"${pu:.2f}", f"${t:.2f}"])
+        # Logo
+        logo_path = "img/logo.png"
+        if os.path.exists(logo_path):
+            pil_img = PILImage.open(logo_path)
+            width, height = pil_img.size
 
-            table = Table(data)
-            table.setStyle(TableStyle([ 
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey), 
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ]))
-            elements.append(table)
+            logo = Image(logo_path)
+            logo.drawHeight = 50
+            logo.drawWidth = width * (logo.drawHeight / height)
+            elements.append(logo)
 
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("Esta cotizacion es valida por 7 dias.", styles['Italic']))
+        # Encabezado
+        elements.append(Paragraph("<b>SERVICIOS INFORMÁTICOS GC</b>", title_style))
+        elements.append(Paragraph("Dinkeldein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com", info_style))
+        elements.append(Spacer(1, 12))
 
-            document.build(elements)
-            QMessageBox.information(self, "Cotización Generada", f"Guardado en {file_path}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo generar el PDF: {e}")
+        # Datos del Cliente
+        elements.append(Paragraph(f"<b>Cliente:</b> {cliente}", styles['Normal']))
+
+        # Verificar si el cliente tiene datos adicionales
+        if cliente in self.clientes_data:
+            cliente_data = self.clientes_data[cliente]
+            direccion = cliente_data.get('Dirección', 'No disponible')
+            telefono = cliente_data.get('Teléfono', 'No disponible')
+            equipo = cliente_data.get('Equipo', 'No disponible')
+
+            # Mostrar la dirección, teléfono y equipo
+            elements.append(Paragraph(f"<b>Dirección:</b> {direccion}", styles['Normal']))
+            elements.append(Paragraph(f"<b>Teléfono:</b> {telefono}", styles['Normal']))
+            elements.append(Paragraph(f"<b>Equipo:</b> {equipo}", styles['Normal']))
+        else:
+            elements.append(Paragraph("<b>Dirección:</b> Información no disponible", styles['Normal']))
+            elements.append(Paragraph("<b>Teléfono:</b> Información no disponible", styles['Normal']))
+            elements.append(Paragraph("<b>Equipo:</b> Información no disponible", styles['Normal']))
+
+        elements.append(Paragraph(f"<b>Fecha:</b> {fecha}", styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+        # Tabla de productos
+        data = [["Producto", "Cantidad", "Precio Unitario", "Total"]]
+        total_general = 0
+        for producto, proveedor, cantidad, precio_unitario, total in productos:
+            data.append([producto, cantidad, f"${precio_unitario:.2f}", f"${total:.2f}"])
+            total_general += total
+
+        data.append(["", "", "Total:", f"${total_general:.2f}"])
+
+        # Ajustar los anchos de las columnas para evitar el estiramiento
+        col_widths = [400, 80, 100, 100]  # Puedes ajustar estos valores a tu gusto
+        table = Table(data, colWidths=col_widths)
+
+        # Agregar el estilo a la tabla
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  # Líneas de la cuadrícula en toda la tabla
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),          # Alineación de los textos al centro
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   # Color de texto para la cabecera
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),   # Fondo gris para la cabecera
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold') # Fuente en negrita para la cabecera
+        ]))
+
+        # Agregar la tabla a los elementos
+        elements.append(table)
+
+        # Crear el PDF
+        document.build(elements)
+
+        return file_path
+
 
 
 if __name__ == '__main__':
