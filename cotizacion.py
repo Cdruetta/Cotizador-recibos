@@ -63,6 +63,10 @@ class CotizacionApp(QWidget):
         self.generar_btn = QPushButton('Generar Cotización')
         self.generar_btn.clicked.connect(self.generar_cotizacion)
 
+        # Nuevo botón para actualizar el equipo
+        self.actualizar_equipo_btn = QPushButton('Actualizar Equipo')
+        self.actualizar_equipo_btn.clicked.connect(self.actualizar_equipo)
+
         # Tabla para mostrar productos agregados
         self.table = QTableWidget()
         self.table.setColumnCount(5)
@@ -73,6 +77,7 @@ class CotizacionApp(QWidget):
         self.layout.addWidget(self.agregar_producto_btn)
         self.layout.addWidget(self.table)
         self.layout.addWidget(self.generar_btn)
+        self.layout.addWidget(self.actualizar_equipo_btn)  # Agregar botón de actualización
         self.setLayout(self.layout)
 
         # Cargar datos desde el archivo Excel
@@ -80,6 +85,24 @@ class CotizacionApp(QWidget):
 
         # Conectar el cambio de producto para actualizar el precio unitario
         self.producto_dropdown.currentTextChanged.connect(self.actualizar_precio_unitario)
+
+    def actualizar_equipo(self):
+        """Actualiza el equipo del cliente seleccionado."""
+        cliente = self.cliente_dropdown.currentText()
+        if not cliente:
+            QMessageBox.warning(self, "Cliente", "Debe seleccionar un cliente.")
+            return
+
+        # Verificar si el cliente tiene datos disponibles
+        if cliente in self.clientes_data:
+            equipo_actualizado = self.clientes_data[cliente].get('Equipo', '')
+            # Aquí puedes actualizar el equipo con un valor nuevo
+            equipo_nuevo = "Nuevo equipo actualizado"  # Aquí iría la lógica de actualización
+            self.clientes_data[cliente]['Equipo'] = equipo_nuevo
+            QMessageBox.information(self, "Actualización", f"El equipo del cliente {cliente} ha sido actualizado.")
+        else:
+            QMessageBox.warning(self, "Datos no encontrados", "No se encontraron datos del cliente.")
+
 
     def cargar_datos(self):
         """Carga datos desde el archivo Excel."""
@@ -199,6 +222,7 @@ class CotizacionApp(QWidget):
         # Estilos personalizados
         title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1)
         info_style = ParagraphStyle('InfoStyle', parent=styles['Normal'], fontSize=10)
+        
 
         # Logo
         logo_path = "img/logo.png"
@@ -206,15 +230,36 @@ class CotizacionApp(QWidget):
             pil_img = PILImage.open(logo_path)
             width, height = pil_img.size
 
+            # Ajustar el tamaño del logo
             logo = Image(logo_path)
-            logo.drawHeight = 50
-            logo.drawWidth = width * (logo.drawHeight / height)
-            elements.append(logo)
+            logo.drawHeight = 120  # Aumentamos el tamaño del logo
+            logo.drawWidth = width * (logo.drawHeight / height)  # Mantiene la proporción
 
-        # Encabezado
-        elements.append(Paragraph("<b>SERVICIOS INFORMÁTICOS GC</b>", title_style))
-        elements.append(Paragraph("Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com", info_style))
-        elements.append(Spacer(1, 12))
+            # Estilos para centrar el texto
+            empresa_style = ParagraphStyle('EmpresaStyle', fontSize=14, alignment=1)  # Centrado
+            datos_style = ParagraphStyle('DatosStyle', fontSize=10, alignment=1)  # Centrado
+
+            # Texto de la empresa y datos de contacto
+            empresa_texto = Paragraph("<b>SERVICIOS INFORMÁTICOS</b>", empresa_style)
+            datos_contacto = Paragraph(
+                "Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com",
+                datos_style)
+
+            # Tabla con una sola columna para alinear elementos verticalmente y centrarlos
+            header_table = Table([[logo], [empresa_texto], [datos_contacto]], colWidths=[500])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alinear todo al centro
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Alinear verticalmente arriba
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),  # Reducir espacios entre filas
+            ]))
+
+            elements.append(header_table)  # Agregar tabla con logo y texto
+            elements.append(Spacer(1, 12))  # Espacio después del encabezado
+            
+            # Agregar número de presupuesto en la parte superior derecha
+            presupuesto_number = f"<b>Presupuesto N° {numero_presupuesto}</b>"
+            presupuesto_paragraph = Paragraph(presupuesto_number, ParagraphStyle('PresupuestoStyle', fontSize=12, alignment=2))
+            elements.append(presupuesto_paragraph)
 
         # Datos del Cliente
         elements.append(Paragraph(f"<b>Cliente:</b> {cliente}", styles['Normal']))
@@ -222,6 +267,7 @@ class CotizacionApp(QWidget):
         # Verificar si el cliente tiene datos adicionales
         if cliente in self.clientes_data:
             cliente_data = self.clientes_data[cliente]
+            direccion = cliente_data.get('Dirección', 'No disponible')
             direccion = cliente_data.get('Dirección', 'No disponible')
             telefono = cliente_data.get('Teléfono', 'No disponible')
             equipo = cliente_data.get('Equipo', 'No disponible')
@@ -244,8 +290,12 @@ class CotizacionApp(QWidget):
         for producto, proveedor, cantidad, precio_unitario, total in productos:
             data.append([producto, cantidad, f"${precio_unitario:.2f}", f"${total:.2f}"])
             total_general += total
-
-        data.append(["", "", "Total:", f"${total_general:.2f}"])
+        
+        # Cambiar la forma en que se maneja el total en negrita
+        total_text = f"${total_general:.2f}"
+        total_paragraph = Paragraph(f"<b>{total_text}</b>", ParagraphStyle('BoldStyle', fontSize=12, fontName='Helvetica-Bold'))
+        data.append(["", "", "Total:", total_paragraph])
+        
 
         # Ajustar los anchos de las columnas para evitar el estiramiento
         col_widths = [400, 80, 100, 100]  # Puedes ajustar estos valores a tu gusto
@@ -260,11 +310,8 @@ class CotizacionApp(QWidget):
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),     
             ('FONTSIZE', (0, 0), (-1, -1), 10),              
         ]))
-
-        elements.append(table)
-        document.build(elements)
-        return file_path
-
+        
+        
         # Agregar la tabla a los elementos
         elements.append(table)
 
@@ -276,9 +323,9 @@ class CotizacionApp(QWidget):
         elements.append(Paragraph("Este presupuesto tiene validez por 7 días.", footer_style))
         elements.append(Paragraph("© GCsoft-2025. Todos los derechos reservados.", footer_style))
 
+        
         # Crear el PDF
         document.build(elements)
-
         return file_path
 
 
