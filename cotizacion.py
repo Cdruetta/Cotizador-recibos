@@ -144,6 +144,19 @@ class CotizacionApp(QWidget):
         precio = self.productos_precios.get(producto, 0)
         self.precio_input.setText(f"{precio:.2f}")
 
+    def obtener_numero_presupuesto(self):
+        """Obtiene el próximo número de presupuesto disponible."""
+        try:
+            ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
+            if os.path.exists(ruta_numero):
+                with open(ruta_numero, 'r') as file:
+                    numero = int(file.read().strip())
+            else:
+                numero = 0  # Si el archivo no existe, comenzamos desde el 0
+            return numero + 1
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo leer el número de presupuesto: {e}")
+            return 1
 
     def generar_cotizacion(self):
         """Genera la cotización en formato PDF y la guarda en el escritorio."""
@@ -162,13 +175,22 @@ class CotizacionApp(QWidget):
         # Confirmar que se generó correctamente
         QMessageBox.information(self, "Éxito", f"Cotización generada: {file_path}")
 
-
     def generar_presupuesto(self, cliente, productos):
-        """Genera el presupuesto en formato PDF."""
+        """Genera el presupuesto en formato PDF con un número incremental."""
+        numero_presupuesto = self.obtener_numero_presupuesto()
         fecha = datetime.now().strftime("%d/%m/%Y")
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "presupuestos")
         os.makedirs(desktop_path, exist_ok=True)
-        file_path = os.path.join(desktop_path, f"presupuesto_{cliente}.pdf")
+        
+        # Guardar el número del presupuesto para el siguiente
+        try:
+            ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
+            with open(ruta_numero, 'w') as file:
+                file.write(str(numero_presupuesto))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo actualizar el número de presupuesto: {e}")
+
+        file_path = os.path.join(desktop_path, f"presupuesto_{numero_presupuesto}_{cliente}.pdf")
         
         document = SimpleDocTemplate(file_path, pagesize=landscape(letter))
         elements = []
@@ -191,7 +213,7 @@ class CotizacionApp(QWidget):
 
         # Encabezado
         elements.append(Paragraph("<b>SERVICIOS INFORMÁTICOS GC</b>", title_style))
-        elements.append(Paragraph("Dinkeldein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com", info_style))
+        elements.append(Paragraph("Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com", info_style))
         elements.append(Spacer(1, 12))
 
         # Datos del Cliente
@@ -230,22 +252,34 @@ class CotizacionApp(QWidget):
         table = Table(data, colWidths=col_widths)
 
         # Agregar el estilo a la tabla
-        table.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  # Líneas de la cuadrícula en toda la tabla
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),          # Alineación de los textos al centro
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   # Color de texto para la cabecera
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),   # Fondo gris para la cabecera
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold') # Fuente en negrita para la cabecera
+        table.setStyle(TableStyle([ 
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),           
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),   
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),     
+            ('FONTSIZE', (0, 0), (-1, -1), 10),              
         ]))
+
+        elements.append(table)
+        document.build(elements)
+        return file_path
 
         # Agregar la tabla a los elementos
         elements.append(table)
+
+        # Estilo centrado para el footer
+        footer_style = ParagraphStyle('FooterStyle', parent=styles['Normal'], alignment=1)  # alignment=1 es para centrar
+
+        # Footer con validez y derechos de autor
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("Este presupuesto tiene validez por 7 días.", footer_style))
+        elements.append(Paragraph("© GCsoft-2025. Todos los derechos reservados.", footer_style))
 
         # Crear el PDF
         document.build(elements)
 
         return file_path
-
 
 
 if __name__ == '__main__':
