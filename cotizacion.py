@@ -39,6 +39,14 @@ class CotizacionApp(QWidget):
         self.cantidad_input = QLineEdit()
         self.precio_input = QLineEdit()
         self.precio_input.setReadOnly(True)
+        
+        # Campos nuevos para la dirección, teléfono y localidad
+        self.direccion_input = QLineEdit()  # Asegúrate de crear este campo
+        self.direccion_input.setReadOnly(True)
+        self.telefono_input = QLineEdit()
+        self.telefono_input.setReadOnly(True)
+        self.localidad_input = QLineEdit()
+        self.localidad_input.setReadOnly(True)
 
         # Dropdown para elegir tipo de documento (Presupuesto o Recibo)
         self.tipo_documento_dropdown = QComboBox()
@@ -46,6 +54,9 @@ class CotizacionApp(QWidget):
 
         # Añadir al formulario
         self.form_layout.addRow('Cliente:', self.cliente_dropdown)
+        self.form_layout.addRow('Dirección:', self.direccion_input)
+        self.form_layout.addRow('Teléfono:', self.telefono_input)
+        self.form_layout.addRow('Localidad:', self.localidad_input)
         self.form_layout.addRow('Producto:', self.producto_dropdown)
         self.form_layout.addRow('Proveedor:', self.proveedor_dropdown)
         self.form_layout.addRow('Cantidad:', self.cantidad_input)
@@ -80,6 +91,7 @@ class CotizacionApp(QWidget):
 
         # Conectar el cambio de producto para actualizar el precio unitario
         self.producto_dropdown.currentTextChanged.connect(self.actualizar_precio_unitario)
+        self.cliente_dropdown.currentTextChanged.connect(self.actualizar_datos_cliente)
         
     def obtener_numero_presupuesto(self):
         """Obtiene el siguiente número de presupuesto desde un archivo."""
@@ -132,6 +144,15 @@ class CotizacionApp(QWidget):
                 self.proveedor_dropdown.addItems(proveedores.tolist())
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo cargar los datos: {e}")
+
+    def actualizar_datos_cliente(self):
+        """Actualiza la información del cliente en los campos de texto."""
+        cliente = self.cliente_dropdown.currentText()
+        if cliente in self.clientes_data:
+            datos = self.clientes_data[cliente]
+            self.direccion_input.setText(datos.get('Dirección', ''))
+            self.telefono_input.setText(str(datos.get('Teléfono', '')))
+            self.localidad_input.setText(datos.get('Localidad', ''))
 
     def actualizar_precio_unitario(self):
         """Actualiza el precio unitario cuando se selecciona un producto."""
@@ -268,7 +289,7 @@ class CotizacionApp(QWidget):
         datos_contacto = "Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com"
 
         company_name_paragraph = Paragraph(f"<b>{company_name}</b>", title_style)
-        datos_contacto_paragraph = Paragraph(f"<i>{datos_contacto}</i>", datos_style)  # Italic
+        datos_contacto_paragraph = Paragraph(f"<i>{datos_contacto}</i>", datos_style) #Italic
 
         # Tabla con una sola fila y columna para centrar todo
         header_table = Table([[logo, company_name_paragraph, datos_contacto_paragraph]], colWidths=[150, 250, 250])
@@ -290,6 +311,10 @@ class CotizacionApp(QWidget):
 
         # Datos del Cliente
         elements.append(Paragraph(f"<b>Cliente:</b> {cliente}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Dirección:</b> {self.direccion_input.text()}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Teléfono:</b> {self.telefono_input.text()}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Localidad:</b> {self.localidad_input.text()}", styles['Normal']))
+
 
         # Fecha
         fecha = datetime.now().strftime("%d/%m/%Y")
