@@ -63,9 +63,9 @@ class CotizacionApp(QWidget):
         self.generar_btn = QPushButton('Generar Cotización')
         self.generar_btn.clicked.connect(self.generar_cotizacion)
 
-        # Nuevo botón para actualizar el equipo
-        self.actualizar_equipo_btn = QPushButton('Actualizar Equipo')
-        self.actualizar_equipo_btn.clicked.connect(self.actualizar_equipo)
+        # Nuevo botón para iniciar un nuevo presupuesto
+        self.nuevo_presupuesto_btn = QPushButton('Nuevo Presupuesto')
+        self.nuevo_presupuesto_btn.clicked.connect(self.nuevo_presupuesto)
 
         # Tabla para mostrar productos agregados
         self.table = QTableWidget()
@@ -77,7 +77,7 @@ class CotizacionApp(QWidget):
         self.layout.addWidget(self.agregar_producto_btn)
         self.layout.addWidget(self.table)
         self.layout.addWidget(self.generar_btn)
-        self.layout.addWidget(self.actualizar_equipo_btn)  # Agregar botón de actualización
+        self.layout.addWidget(self.nuevo_presupuesto_btn)  # Agregar botón de nuevo presupuesto
         self.setLayout(self.layout)
 
         # Cargar datos desde el archivo Excel
@@ -85,6 +85,21 @@ class CotizacionApp(QWidget):
 
         # Conectar el cambio de producto para actualizar el precio unitario
         self.producto_dropdown.currentTextChanged.connect(self.actualizar_precio_unitario)
+
+    def nuevo_presupuesto(self):
+        """Reinicia los campos y la tabla para crear un nuevo presupuesto."""
+        self.cliente_dropdown.setCurrentIndex(0)
+        self.producto_dropdown.setCurrentIndex(0)
+        self.proveedor_dropdown.setCurrentIndex(0)
+        self.cantidad_input.clear()
+        self.precio_input.clear()
+
+        # Limpiar la tabla
+        self.table.setRowCount(0)
+
+        # Reiniciar la lista de productos agregados
+        self.productos_agregados = []
+        QMessageBox.information(self, "Nuevo Presupuesto", "Los datos han sido limpiados, ahora puedes crear un nuevo presupuesto.")
 
     def actualizar_equipo(self):
         """Actualiza el equipo del cliente seleccionado."""
@@ -166,7 +181,6 @@ class CotizacionApp(QWidget):
         producto = self.producto_dropdown.currentText()
         precio = self.productos_precios.get(producto, 0)
         self.precio_input.setText(f"{precio:.2f}")
-
     def obtener_numero_presupuesto(self):
         """Obtiene el próximo número de presupuesto disponible."""
         try:
