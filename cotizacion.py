@@ -24,7 +24,7 @@ def obtener_ruta_archivo(nombre_archivo):
 class CotizacionApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Generador de Cotizaciones')
+        self.setWindowTitle('Generador de Cotizaciones y Recibos')
         self.setGeometry(100, 100, 800, 500)
 
         # Inicialización de componentes
@@ -40,21 +40,26 @@ class CotizacionApp(QWidget):
         self.precio_input = QLineEdit()
         self.precio_input.setReadOnly(True)
 
+        # Dropdown para elegir tipo de documento (Presupuesto o Recibo)
+        self.tipo_documento_dropdown = QComboBox()
+        self.tipo_documento_dropdown.addItems(["Presupuesto", "Recibo"])
+
         # Añadir al formulario
         self.form_layout.addRow('Cliente:', self.cliente_dropdown)
         self.form_layout.addRow('Producto:', self.producto_dropdown)
         self.form_layout.addRow('Proveedor:', self.proveedor_dropdown)
         self.form_layout.addRow('Cantidad:', self.cantidad_input)
         self.form_layout.addRow('Precio Unitario:', self.precio_input)
+        self.form_layout.addRow('Tipo de Documento:', self.tipo_documento_dropdown)
 
         # Botones
         self.agregar_producto_btn = QPushButton('Agregar Producto')
         self.agregar_producto_btn.clicked.connect(self.agregar_producto)
 
-        self.generar_btn = QPushButton('Generar Cotización')
-        self.generar_btn.clicked.connect(self.generar_cotizacion)
+        self.generar_btn = QPushButton('Generar Documento')
+        self.generar_btn.clicked.connect(self.generar_documento)
 
-        self.nuevo_presupuesto_btn = QPushButton('Nuevo Presupuesto')
+        self.nuevo_presupuesto_btn = QPushButton('Nuevo Documento')
         self.nuevo_presupuesto_btn.clicked.connect(self.nuevo_presupuesto)
 
         # Tabla de productos agregados
@@ -75,6 +80,31 @@ class CotizacionApp(QWidget):
 
         # Conectar el cambio de producto para actualizar el precio unitario
         self.producto_dropdown.currentTextChanged.connect(self.actualizar_precio_unitario)
+        
+    def obtener_numero_presupuesto(self):
+        """Obtiene el siguiente número de presupuesto desde un archivo."""
+        try:
+            # Ruta donde se almacena el número del presupuesto
+            ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
+            
+            # Verificar si el archivo existe y leer el número actual
+            if os.path.exists(ruta_numero):
+                with open(ruta_numero, 'r') as file:
+                    numero = int(file.read().strip())  # Leer y convertir a entero
+            else:
+                numero = 1  # Si el archivo no existe, empezar desde 1
+            
+            # Incrementar el número para el siguiente presupuesto
+            siguiente_numero = numero + 1
+            
+            # Guardar el siguiente número para la próxima vez
+            with open(ruta_numero, 'w') as file:
+                file.write(str(siguiente_numero))
+            
+            return numero  # Retornar el número actual, antes de incrementarlo
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo obtener el número del presupuesto: {e}")
+            return 1  # En caso de error, empezar desde el 1
 
     def cargar_datos(self):
         """Carga datos desde el archivo Excel."""
@@ -141,7 +171,7 @@ class CotizacionApp(QWidget):
             QMessageBox.warning(self, "Entrada Inválida", str(e))
 
     def nuevo_presupuesto(self):
-        """Reinicia los campos y la tabla para crear un nuevo presupuesto."""
+        """Reinicia los campos y la tabla para crear un nuevo documento."""
         self.cliente_dropdown.setCurrentIndex(0)
         self.producto_dropdown.setCurrentIndex(0)
         self.proveedor_dropdown.setCurrentIndex(0)
@@ -153,24 +183,10 @@ class CotizacionApp(QWidget):
 
         # Reiniciar la lista de productos agregados
         self.productos_agregados = []
-        QMessageBox.information(self, "Nuevo Presupuesto", "Los datos han sido limpiados, ahora puedes crear un nuevo presupuesto.")
+        QMessageBox.information(self, "Nuevo Documento", "Los datos han sido limpiados, ahora puedes crear un nuevo documento.")
 
-    def obtener_numero_presupuesto(self):
-        """Obtiene el próximo número de presupuesto disponible."""
-        try:
-            ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
-            if os.path.exists(ruta_numero):
-                with open(ruta_numero, 'r') as file:
-                    numero = int(file.read().strip())
-            else:
-                numero = 0  # Si el archivo no existe, comenzamos desde el 0
-            return numero + 1
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo leer el número de presupuesto: {e}")
-            return 1
-
-    def generar_cotizacion(self):
-        """Genera la cotización en formato PDF y la guarda en el escritorio."""
+    def generar_documento(self):
+        """Genera un presupuesto o recibo según el tipo seleccionado."""
         cliente = self.cliente_dropdown.currentText()
         if not cliente:
             QMessageBox.warning(self, "Cliente", "Debe seleccionar un cliente.")
@@ -180,11 +196,14 @@ class CotizacionApp(QWidget):
             QMessageBox.warning(self, "Productos", "Debe agregar al menos un producto.")
             return
 
-        # Generar el presupuesto (PDF)
-        file_path = self.generar_presupuesto(cliente, self.productos_agregados)
-        
+        tipo_documento = self.tipo_documento_dropdown.currentText()
+        if tipo_documento == "Presupuesto":
+            file_path = self.generar_presupuesto(cliente, self.productos_agregados)
+        elif tipo_documento == "Recibo":
+            file_path = self.generar_recibo(cliente, self.productos_agregados)
+
         # Confirmar que se generó correctamente
-        QMessageBox.information(self, "Éxito", f"Cotización generada: {file_path}")
+        QMessageBox.information(self, "Éxito", f"{tipo_documento} generado: {file_path}")
 
     def generar_presupuesto(self, cliente, productos):
         """Genera el presupuesto en formato PDF con un número incremental."""
@@ -192,7 +211,7 @@ class CotizacionApp(QWidget):
         fecha = datetime.now().strftime("%d/%m/%Y")
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "presupuestos")
         os.makedirs(desktop_path, exist_ok=True)
-        
+
         # Guardar el número del presupuesto para el siguiente
         try:
             ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
@@ -202,71 +221,78 @@ class CotizacionApp(QWidget):
             QMessageBox.critical(self, "Error", f"No se pudo actualizar el número de presupuesto: {e}")
 
         file_path = os.path.join(desktop_path, f"presupuesto_{numero_presupuesto}_{cliente}.pdf")
-        
+
+        # Crear el documento PDF
+        return self.generar_pdf(cliente, productos, "Presupuesto", numero_presupuesto, file_path)
+
+    def generar_recibo(self, cliente, productos):
+        """Genera el recibo en formato PDF."""
+        numero_recibo = self.obtener_numero_presupuesto()
+        fecha = datetime.now().strftime("%d/%m/%Y")
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "recibos")
+        os.makedirs(desktop_path, exist_ok=True)
+
+        # Guardar el número del recibo para el siguiente
+        try:
+            ruta_numero = obtener_ruta_archivo('numero_recibo.txt')
+            with open(ruta_numero, 'w') as file:
+                file.write(str(numero_recibo))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo actualizar el número de recibo: {e}")
+
+        file_path = os.path.join(desktop_path, f"recibo_{numero_recibo}_{cliente}.pdf")
+
+        # Crear el documento PDF
+        return self.generar_pdf(cliente, productos, "Recibo", numero_recibo, file_path)
+
+    def generar_pdf(self, cliente, productos, tipo, numero, file_path):
+        """Genera el PDF (presupuesto o recibo)."""
         document = SimpleDocTemplate(file_path, pagesize=landscape(letter))
         elements = []
         styles = getSampleStyleSheet()
 
         # Estilos personalizados
-        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1)
-        info_style = ParagraphStyle('InfoStyle', parent=styles['Normal'], fontSize=10)
-        
-        # Logo
-        logo_path = "img/logo.png"
-        if os.path.exists(logo_path):
-            pil_img = PILImage.open(logo_path)
-            width, height = pil_img.size
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('EmpresaStyle', fontSize=14, alignment=1)  # Centrado
+        datos_style = ParagraphStyle('DatosStyle', fontSize=10, alignment=1)  # Centrado
 
-            # Ajustar el tamaño del logo
-            logo = Image(logo_path)
-            logo.drawHeight = 120  # Aumentamos el tamaño del logo
-            logo.drawWidth = width * (logo.drawHeight / height)  # Mantiene la proporción
+        # Verificar la existencia del logo
+        logo_path = obtener_ruta_archivo('img/logo.png')
+        if not os.path.exists(logo_path):
+            print(f"El archivo del logo no se encuentra en: {logo_path}")
 
-            # Estilos para centrar el texto
-            empresa_style = ParagraphStyle('EmpresaStyle', fontSize=14, alignment=1)  # Centrado
-            datos_style = ParagraphStyle('DatosStyle', fontSize=10, alignment=1)  # Centrado
+        logo = Image(logo_path, width=150, height=100)  # Ajusta el tamaño del logo
 
-            # Texto de la empresa y datos de contacto
-            empresa_texto = Paragraph("<b>SERVICIOS INFORMÁTICOS</b>", empresa_style)
-            datos_contacto = Paragraph(
-                "Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com",
-                datos_style)
+        # Nombre de la empresa y datos de contacto
+        company_name = "SERVICIOS INFORMÁTICOS"
+        datos_contacto = "Dilkendein 1278 - Tel: 358-4268768 - Email: cristian.e.druetta@gmail.com"
 
-            # Tabla con una sola columna para alinear elementos verticalmente y centrarlos
-            header_table = Table([[logo], [empresa_texto], [datos_contacto]], colWidths=[500])
-            header_table.setStyle(TableStyle([ 
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ]))
+        company_name_paragraph = Paragraph(f"<b>{company_name}</b>", title_style)
+        datos_contacto_paragraph = Paragraph(f"<i>{datos_contacto}</i>", datos_style)  # Italic
 
-            elements.append(header_table)  # Agregar tabla con logo y texto
-            elements.append(Spacer(1, 12))  # Espacio después del encabezado
-            
-            # Agregar número de presupuesto en la parte superior derecha
-            presupuesto_number = f"<b>Presupuesto N° {numero_presupuesto}</b>"
-            presupuesto_paragraph = Paragraph(presupuesto_number, ParagraphStyle('PresupuestoStyle', fontSize=12, alignment=2))
-            elements.append(presupuesto_paragraph)
+        # Tabla con una sola fila y columna para centrar todo
+        header_table = Table([[logo, company_name_paragraph, datos_contacto_paragraph]], colWidths=[150, 250, 250])
+
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+
+        elements = []
+        elements.append(header_table)  # Agregar tabla con logo y texto
+        elements.append(Spacer(1, 12))  # Espacio después del encabezado
+
+                
+                # Título del documento (Recibo o Presupuesto)
+        elements.append(Paragraph(f"<b>{tipo} N° {numero}</b>", title_style))
+        elements.append(Spacer(1, 12))
 
         # Datos del Cliente
         elements.append(Paragraph(f"<b>Cliente:</b> {cliente}", styles['Normal']))
 
-        # Verificar si el cliente tiene datos adicionales
-        if cliente in self.clientes_data:
-            cliente_data = self.clientes_data[cliente]
-            direccion = cliente_data.get('Dirección', 'No disponible')
-            telefono = cliente_data.get('Teléfono', 'No disponible')
-            equipo = cliente_data.get('Equipo', 'No disponible')
-
-            # Mostrar la dirección, teléfono y equipo
-            elements.append(Paragraph(f"<b>Dirección:</b> {direccion}", styles['Normal']))
-            elements.append(Paragraph(f"<b>Teléfono:</b> {telefono}", styles['Normal']))
-            elements.append(Paragraph(f"<b>Equipo:</b> {equipo}", styles['Normal']))
-        else:
-            elements.append(Paragraph("<b>Dirección:</b> Información no disponible", styles['Normal']))
-            elements.append(Paragraph("<b>Teléfono:</b> Información no disponible", styles['Normal']))
-            elements.append(Paragraph("<b>Equipo:</b> Información no disponible", styles['Normal']))
-
+        # Fecha
+        fecha = datetime.now().strftime("%d/%m/%Y")
         elements.append(Paragraph(f"<b>Fecha:</b> {fecha}", styles['Normal']))
         elements.append(Spacer(1, 12))
 
@@ -299,14 +325,14 @@ class CotizacionApp(QWidget):
         # Footer
         footer_style = ParagraphStyle('FooterStyle', parent=styles['Normal'], alignment=1)
         elements.append(Spacer(1, 12))
-        elements.append(Paragraph("Este presupuesto tiene validez por 7 días.", footer_style))
+        elements.append(Paragraph("Este documento tiene validez por 7 días.", footer_style))
         elements.append(Paragraph("© GCsoft-2025. Todos los derechos reservados.", footer_style))
 
         # Crear el PDF
         document.build(elements)
         return file_path
-
-
+    
+    
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
