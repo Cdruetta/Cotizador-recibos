@@ -1,20 +1,18 @@
 import sys
+import os
+from datetime import datetime
 import pandas as pd
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QComboBox, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QMessageBox
 )
 from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-)
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-import os
-from datetime import datetime
 from PIL import Image as PILImage
 
-
+# Funciones auxiliares
 def obtener_ruta_archivo(nombre_archivo):
     """Devuelve la ruta correcta del archivo dependiendo del entorno."""
     if getattr(sys, 'frozen', False):  # Ejecutable .exe
@@ -23,28 +21,21 @@ def obtener_ruta_archivo(nombre_archivo):
         ruta = os.path.join(os.path.dirname(__file__), nombre_archivo)
     return ruta
 
-
 class CotizacionApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Generador de Cotizaciones')
         self.setGeometry(100, 100, 800, 500)
 
+        # Inicialización de componentes
         self.layout = QVBoxLayout()
         self.form_layout = QFormLayout()
-
-        # Diccionario para almacenar los precios de los productos
         self.productos_precios = {}
-
-        # Tabla de productos agregados
         self.productos_agregados = []
 
-        # Menús desplegables
         self.cliente_dropdown = QComboBox()
         self.producto_dropdown = QComboBox()
         self.proveedor_dropdown = QComboBox()
-
-        # Inputs adicionales
         self.cantidad_input = QLineEdit()
         self.precio_input = QLineEdit()
         self.precio_input.setReadOnly(True)
@@ -63,11 +54,10 @@ class CotizacionApp(QWidget):
         self.generar_btn = QPushButton('Generar Cotización')
         self.generar_btn.clicked.connect(self.generar_cotizacion)
 
-        # Nuevo botón para iniciar un nuevo presupuesto
         self.nuevo_presupuesto_btn = QPushButton('Nuevo Presupuesto')
         self.nuevo_presupuesto_btn.clicked.connect(self.nuevo_presupuesto)
 
-        # Tabla para mostrar productos agregados
+        # Tabla de productos agregados
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(['Producto', 'Proveedor', 'Cantidad', 'Precio Unitario', 'Total'])
@@ -75,9 +65,9 @@ class CotizacionApp(QWidget):
         # Layouts
         self.layout.addLayout(self.form_layout)
         self.layout.addWidget(self.agregar_producto_btn)
-        self.layout.addWidget(self.table)
         self.layout.addWidget(self.generar_btn)
-        self.layout.addWidget(self.nuevo_presupuesto_btn)  # Agregar botón de nuevo presupuesto
+        self.layout.addWidget(self.nuevo_presupuesto_btn)
+        self.layout.addWidget(self.table)
         self.setLayout(self.layout)
 
         # Cargar datos desde el archivo Excel
@@ -85,39 +75,6 @@ class CotizacionApp(QWidget):
 
         # Conectar el cambio de producto para actualizar el precio unitario
         self.producto_dropdown.currentTextChanged.connect(self.actualizar_precio_unitario)
-
-    def nuevo_presupuesto(self):
-        """Reinicia los campos y la tabla para crear un nuevo presupuesto."""
-        self.cliente_dropdown.setCurrentIndex(0)
-        self.producto_dropdown.setCurrentIndex(0)
-        self.proveedor_dropdown.setCurrentIndex(0)
-        self.cantidad_input.clear()
-        self.precio_input.clear()
-
-        # Limpiar la tabla
-        self.table.setRowCount(0)
-
-        # Reiniciar la lista de productos agregados
-        self.productos_agregados = []
-        QMessageBox.information(self, "Nuevo Presupuesto", "Los datos han sido limpiados, ahora puedes crear un nuevo presupuesto.")
-
-    def actualizar_equipo(self):
-        """Actualiza el equipo del cliente seleccionado."""
-        cliente = self.cliente_dropdown.currentText()
-        if not cliente:
-            QMessageBox.warning(self, "Cliente", "Debe seleccionar un cliente.")
-            return
-
-        # Verificar si el cliente tiene datos disponibles
-        if cliente in self.clientes_data:
-            equipo_actualizado = self.clientes_data[cliente].get('Equipo', '')
-            # Aquí puedes actualizar el equipo con un valor nuevo
-            equipo_nuevo = "Nuevo equipo actualizado"  # Aquí iría la lógica de actualización
-            self.clientes_data[cliente]['Equipo'] = equipo_nuevo
-            QMessageBox.information(self, "Actualización", f"El equipo del cliente {cliente} ha sido actualizado.")
-        else:
-            QMessageBox.warning(self, "Datos no encontrados", "No se encontraron datos del cliente.")
-
 
     def cargar_datos(self):
         """Carga datos desde el archivo Excel."""
@@ -145,6 +102,12 @@ class CotizacionApp(QWidget):
                 self.proveedor_dropdown.addItems(proveedores.tolist())
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo cargar los datos: {e}")
+
+    def actualizar_precio_unitario(self):
+        """Actualiza el precio unitario cuando se selecciona un producto."""
+        producto = self.producto_dropdown.currentText()
+        precio = self.productos_precios.get(producto, 0)
+        self.precio_input.setText(f"{precio:.2f}")
 
     def agregar_producto(self):
         """Agrega un producto a la lista y la tabla."""
@@ -177,10 +140,21 @@ class CotizacionApp(QWidget):
         except ValueError as e:
             QMessageBox.warning(self, "Entrada Inválida", str(e))
 
-    def actualizar_precio_unitario(self):
-        producto = self.producto_dropdown.currentText()
-        precio = self.productos_precios.get(producto, 0)
-        self.precio_input.setText(f"{precio:.2f}")
+    def nuevo_presupuesto(self):
+        """Reinicia los campos y la tabla para crear un nuevo presupuesto."""
+        self.cliente_dropdown.setCurrentIndex(0)
+        self.producto_dropdown.setCurrentIndex(0)
+        self.proveedor_dropdown.setCurrentIndex(0)
+        self.cantidad_input.clear()
+        self.precio_input.clear()
+
+        # Limpiar la tabla
+        self.table.setRowCount(0)
+
+        # Reiniciar la lista de productos agregados
+        self.productos_agregados = []
+        QMessageBox.information(self, "Nuevo Presupuesto", "Los datos han sido limpiados, ahora puedes crear un nuevo presupuesto.")
+
     def obtener_numero_presupuesto(self):
         """Obtiene el próximo número de presupuesto disponible."""
         try:
@@ -237,7 +211,6 @@ class CotizacionApp(QWidget):
         title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1)
         info_style = ParagraphStyle('InfoStyle', parent=styles['Normal'], fontSize=10)
         
-
         # Logo
         logo_path = "img/logo.png"
         if os.path.exists(logo_path):
@@ -261,10 +234,10 @@ class CotizacionApp(QWidget):
 
             # Tabla con una sola columna para alinear elementos verticalmente y centrarlos
             header_table = Table([[logo], [empresa_texto], [datos_contacto]], colWidths=[500])
-            header_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Alinear todo al centro
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Alinear verticalmente arriba
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),  # Reducir espacios entre filas
+            header_table.setStyle(TableStyle([ 
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
             ]))
 
             elements.append(header_table)  # Agregar tabla con logo y texto
@@ -281,7 +254,6 @@ class CotizacionApp(QWidget):
         # Verificar si el cliente tiene datos adicionales
         if cliente in self.clientes_data:
             cliente_data = self.clientes_data[cliente]
-            direccion = cliente_data.get('Dirección', 'No disponible')
             direccion = cliente_data.get('Dirección', 'No disponible')
             telefono = cliente_data.get('Teléfono', 'No disponible')
             equipo = cliente_data.get('Equipo', 'No disponible')
@@ -305,39 +277,31 @@ class CotizacionApp(QWidget):
             data.append([producto, cantidad, f"${precio_unitario:.2f}", f"${total:.2f}"])
             total_general += total
         
-        # Cambiar la forma en que se maneja el total en negrita
         total_text = f"${total_general:.2f}"
         total_paragraph = Paragraph(f"<b>{total_text}</b>", ParagraphStyle('BoldStyle', fontSize=12, fontName='Helvetica-Bold'))
         data.append(["", "", "Total:", total_paragraph])
-        
 
-        # Ajustar los anchos de las columnas para evitar el estiramiento
-        col_widths = [400, 80, 100, 100]  # Puedes ajustar estos valores a tu gusto
+        # Ajuste de columnas
+        col_widths = [400, 80, 100, 100]
         table = Table(data, colWidths=col_widths)
-
-        # Agregar el estilo a la tabla
         table.setStyle(TableStyle([ 
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),           
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),   
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),   
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),     
-            ('FONTSIZE', (0, 0), (-1, -1), 10),              
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
         ]))
         
-        
-        # Agregar la tabla a los elementos
+        # Añadir la tabla
         elements.append(table)
 
-        # Estilo centrado para el footer
-        footer_style = ParagraphStyle('FooterStyle', parent=styles['Normal'], alignment=1)  # alignment=1 es para centrar
-
-        # Footer con validez y derechos de autor
+        # Footer
+        footer_style = ParagraphStyle('FooterStyle', parent=styles['Normal'], alignment=1)
         elements.append(Spacer(1, 12))
         elements.append(Paragraph("Este presupuesto tiene validez por 7 días.", footer_style))
         elements.append(Paragraph("© GCsoft-2025. Todos los derechos reservados.", footer_style))
 
-        
         # Crear el PDF
         document.build(elements)
         return file_path
