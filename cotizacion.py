@@ -41,7 +41,7 @@ class CotizacionApp(QWidget):
         self.precio_input.setReadOnly(True)
         
         # Campos nuevos para la dirección, teléfono y localidad
-        self.direccion_input = QLineEdit()  # Asegúrate de crear este campo
+        self.direccion_input = QLineEdit()
         self.direccion_input.setReadOnly(True)
         self.telefono_input = QLineEdit()
         self.telefono_input.setReadOnly(True)
@@ -233,13 +233,7 @@ class CotizacionApp(QWidget):
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "presupuestos")
         os.makedirs(desktop_path, exist_ok=True)
 
-        # Guardar el número del presupuesto para el siguiente
-        try:
-            ruta_numero = obtener_ruta_archivo('numero_presupuesto.txt')
-            with open(ruta_numero, 'w') as file:
-                file.write(str(numero_presupuesto))
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo actualizar el número de presupuesto: {e}")
+        # Ya no escribimos el número aquí porque se hace en obtener_numero_presupuesto()
 
         file_path = os.path.join(desktop_path, f"presupuesto_{numero_presupuesto}_{cliente}.pdf")
 
@@ -253,13 +247,7 @@ class CotizacionApp(QWidget):
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "recibos")
         os.makedirs(desktop_path, exist_ok=True)
 
-        # Guardar el número del recibo para el siguiente
-        try:
-            ruta_numero = obtener_ruta_archivo('numero_recibo.txt')
-            with open(ruta_numero, 'w') as file:
-                file.write(str(numero_recibo))
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo actualizar el número de recibo: {e}")
+        # Ya no escribimos el número aquí porque se hace en obtener_numero_presupuesto()
 
         file_path = os.path.join(desktop_path, f"recibo_{numero_recibo}_{cliente}.pdf")
 
@@ -304,8 +292,7 @@ class CotizacionApp(QWidget):
         elements.append(header_table)  # Agregar tabla con logo y texto
         elements.append(Spacer(1, 12))  # Espacio después del encabezado
 
-                
-                # Título del documento (Recibo o Presupuesto)
+        # Título del documento (Recibo o Presupuesto)
         elements.append(Paragraph(f"<b>{tipo} N° {numero}</b>", title_style))
         elements.append(Spacer(1, 12))
 
@@ -314,7 +301,6 @@ class CotizacionApp(QWidget):
         elements.append(Paragraph(f"<b>Dirección:</b> {self.direccion_input.text()}", styles['Normal']))
         elements.append(Paragraph(f"<b>Teléfono:</b> {self.telefono_input.text()}", styles['Normal']))
         elements.append(Paragraph(f"<b>Localidad:</b> {self.localidad_input.text()}", styles['Normal']))
-
 
         # Fecha
         fecha = datetime.now().strftime("%d/%m/%Y")
