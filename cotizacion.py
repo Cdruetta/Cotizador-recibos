@@ -163,9 +163,9 @@ class CotizacionApp(QWidget):
         cliente = self.cliente_dropdown.currentText()
         if cliente in self.clientes_data:
             datos = self.clientes_data[cliente]
-            self.direccion_input.setText(datos.get('Dirección', ''))
+            self.direccion_input.setText(str(datos.get('Dirección', '')))
             self.telefono_input.setText(str(datos.get('Teléfono', '')))
-            self.localidad_input.setText(datos.get('Localidad', ''))
+            self.localidad_input.setText(str(datos.get('Localidad', '')))
 
     def actualizar_precio_unitario(self):
         producto = self.producto_dropdown.currentText()
